@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video — link da copiare</title>
+<style>
+  :root { --ink:#2b2230; --rose:#c84f85; --rose-d:#a83a6c; --bg:#fbf6f2; --card:#ffffff; --muted:#7c7280; --line:#efe4dc; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1080px; margin:0 auto; padding:40px 20px 90px; }
+  h1 { font-size:28px; letter-spacing:-.5px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 8px; }
+  .count { color:var(--rose); font-weight:600; }
+  .legend { color:var(--muted); font-size:13px; margin:0 0 26px; }
+  .legend b { color:var(--ink); }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px;
+    overflow:hidden; display:flex; flex-direction:column; }
+
+  .thumb { position:relative; background:#000; aspect-ratio:16/9; cursor:pointer; }
+  .thumb video { width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb .play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; transition:opacity .2s; }
+  .thumb .play svg { width:52px; height:52px; filter:drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
+  .thumb.playing .play { opacity:0; }
+
+  .body { padding:14px 16px 16px; }
+  .name { font-weight:600; font-size:15px; margin:0 0 2px; }
+  .vid { color:var(--muted); font-size:12px; margin:0 0 12px; font-variant-numeric:tabular-nums; }
+
+  .btns { display:flex; flex-wrap:wrap; gap:8px; }
+  .btn { flex:1 1 auto; min-width:76px; cursor:pointer; border:1px solid var(--line);
+    background:#fff; border-radius:10px; padding:9px 8px; text-align:center;
+    transition:.15s; color:var(--ink); }
+  .btn:hover { border-color:var(--rose); background:#fdf2f7; }
+  .btn:active { transform:translateY(1px); }
+  .btn .tier { display:block; font-weight:700; font-size:14px; color:var(--rose-d); letter-spacing:.3px; }
+  .btn .res { display:block; font-size:11px; color:var(--muted); margin-top:1px; }
+  .btn.copied { border-color:var(--rose); background:var(--rose); }
+  .btn.copied .tier, .btn.copied .res { color:#fff; }
+
+  .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 18px; border-radius:999px; font-size:14px;
+    opacity:0; pointer-events:none; transition:.25s; z-index:50; box-shadow:0 6px 20px rgba(0,0,0,.2); }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  footer { margin-top:40px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Video — link da copiare</h1>
+  <p class="sub"><span class="count" id="count"></span> — passa il mouse sull'anteprima per riprodurre, clicca un pulsante per copiare quel link.</p>
+  <p class="legend"><b>HD</b> = 1080p · <b>MD</b> = 720p · <b>SD</b> = 540p · <b>SD⁻</b> = 360p</p>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>I link contengono la firma Vimeo e sono validi a tempo. Il totale dei link è mostrato in alto.</footer>
+</div>
+
+<div class="toast" id="toast">Link copiato ✓</div>
+
+<script>
+const B = 'https://player.vimeo.com/progressive_redirect/playback/';
+function u(id, res, sig){ return `${B}${id}/rendition/${res}/file.mp4?loc=external&signature=${sig}`; }
+
+// 7 video, ogni rendition = 1 link.
+const videos = [
+  { id:'986446569', name:'Video 1', r:{
+    '1080p':'604079b60b9ce3d6b536635fa3b909ebb78a929c903cb93ae305e146a4b317e5',
+    '540p' :'99f59a4757c35fd7e82137c3d6b8e08f246ff8077e2833a09a52b067ea0288fb',
+    '360p' :'56277ff673de5eedc4435373cc2e71a93a3d854662a04ce7a327502a4dbc2381',
+  }},
+  { id:'862269018', name:'Video 2', r:{
+    '1080p':'731d12894e3f89ede872125034b2659c154d4d26d61abd680750423798793fd0',
+    '720p' :'823fdb26580fd16e22d86c05d9bb2976e93cb81382e968aa128b941af60fcf57',
+    '540p' :'4189d52d0cb2ef705d8b6b3456f695b9ee6487c9d693cda24aff6cb84e2f554f',
+  }},
+  { id:'859720776', name:'Video 3', r:{
+    '1080p':'6347d52f4d33762e68a9efb4d1872b277fc36312e822c809fff8df5b4a2b37f4',
+    '720p' :'3bd1857b633383d3730c8e173e7da1d45b5749ca0c593de34ca66fecaed8eaa2',
+    '540p' :'cd25e9a143ba0d842cfde6e3f267886f6bdcaf227c80a14a83917f8c5bf52679',
+  }},
+  { id:'862268311', name:'Video 4', r:{
+    '1080p':'a160ff5fc0c7310aa691c00308be8393a03a2f03d7cac020a43a36506a86516d',
+    '720p' :'e24f13a47235635a0d3ff173317a239fd437cbe5c69548a4bcab400738672c52',
+    '540p' :'819c2cd4193128467ccf8848f77d41b1345eb4d816f1551be0f1171c84851e63',
+  }},
+  { id:'862266617', name:'Video 5', r:{
+    '1080p':'7dcde64aaf79997dcb52d77ec8f532e75b85f13a5dc8d5016767366c15ad0a9a',
+    '720p' :'62a7fdf0e1219f728b49982b148ac95866e021c41ea1af5ecb3c685dd97410d2',
+    '540p' :'03ce254aad3f7fc2c9368ebbe022d67048f7d75352123e6d8cb8ae1a4a5a1821',
+  }},
+  { id:'859695423', name:'Video 6', r:{
+    '1080p':'7119d864cd27577b5b49a8bac9f9d1e41e3b56c948402e120d71f6ce76223fc7',
+    '720p' :'bbb1b6218c78957ec4aa6ca73bed678bb25c7be1d7cd651df07236292ee7312c',
+    '540p' :'104b84a8eac9772d0cc5189064d6dd767887a48e666d1438c2ef9403009911fa',
+  }},
+  { id:'859701830', name:'Video 7', r:{
+    '540p' :'6df8f8f387b1590bb11fcadd483c0c1fb3415edf0eaabfcbf49f8a84d332ea6e',
+  }},
+];
+
+const TIER = { '1080p':'HD', '720p':'MD', '540p':'SD', '360p':'SD⁻' };
+const ORDER = ['1080p','720p','540p','360p'];
+
+const grid = document.getElementById('grid');
+const toast = document.getElementById('toast');
+let toastT;
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>toast.classList.remove('show'), 1600);
+}
+
+async function copy(text, btn){
+  try {
+    if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(text);
+    else { const t=document.createElement('textarea'); t.value=text; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    btn.classList.add('copied');
+    setTimeout(()=>btn.classList.remove('copied'), 900);
+    showToast('Link copiato ✓');
+  } catch(e){ showToast('Copia non riuscita — copia manualmente'); }
+}
+
+let linkCount = 0;
+
+videos.forEach(v => {
+  const res = ORDER.filter(r => v.r[r]);          // renditions presenti, dalla più alta
+  const best = res[0];
+  const bestUrl = u(v.id, best, v.r[best]);
+  linkCount += res.length;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  card.innerHTML = `
+    <div class="thumb" title="Clicca per riprodurre">
+      <video muted playsinline preload="metadata" src="${bestUrl}#t=1"></video>
+      <div class="play"><svg viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,.35)"/><path d="M9.5 8.2v7.6l6-3.8z"/></svg></div>
+    </div>
+    <div class="body">
+      <p class="name">${v.name}</p>
+      <p class="vid">ID ${v.id}</p>
+      <div class="btns">
+        ${res.map(r => `<button class="btn" data-url="${u(v.id,r,v.r[r])}">
+          <span class="tier">${TIER[r]}</span><span class="res">${r}</span></button>`).join('')}
+      </div>
+    </div>`;
+
+  // anteprima: play/pause al passaggio del mouse e al click
+  const thumb = card.querySelector('.thumb');
+  const vid = card.querySelector('video');
+  const play = () => { vid.play().then(()=>thumb.classList.add('playing')).catch(()=>{}); };
+  const stop = () => { vid.pause(); thumb.classList.remove('playing'); };
+  thumb.addEventListener('mouseenter', play);
+  thumb.addEventListener('mouseleave', stop);
+  thumb.addEventListener('click', () => { vid.paused ? play() : stop(); });
+
+  // pulsanti copia
+  card.querySelectorAll('.btn').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); copy(b.dataset.url, b); });
+  });
+
+  grid.appendChild(card);
+});
+
+document.getElementById('count').textContent =
+  `${videos.length} video · ${linkCount} link`;
+</script>
+</body>
+</html>
